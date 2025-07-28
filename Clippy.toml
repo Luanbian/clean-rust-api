@@ -1,0 +1,4 @@
+[clippy]
+default-features = true
+# (replace `+` with `-` to disable specific lints)
+extra-plugins = ["clippy::pedantic", "clippy::cargo", "+clippy::nursery", "+clippy::style", "+clippy::complexity", "+clippy::perf", "+clippy::correctness"]

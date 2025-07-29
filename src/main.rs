@@ -1,8 +1,12 @@
 mod constants;
 use constants::load_env;
+
 mod services;
 use services::axum::{Server, ServerService};
 use services::postgres::{Database, DbService};
+
+mod features;
+mod traits;
 
 #[tokio::main]
 async fn main() {

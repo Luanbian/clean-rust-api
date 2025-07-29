@@ -1,8 +1,5 @@
 mod services;
-
-use services::axum::Server;
-
-use crate::services::axum::ServerService;
+use services::axum::{Server, ServerService};
 
 #[tokio::main]
 async fn main() {

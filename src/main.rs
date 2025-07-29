@@ -1,10 +1,12 @@
-use axum::Router;
-
 mod services;
-use services::axum::server;
+
+use services::axum::Server;
+
+use crate::services::axum::ServerService;
 
 #[tokio::main]
 async fn main() {
-    let app = Router::new().nest("/api", Router::new());
-    server(app).await;
+    let port: u16 = 3005;
+    let server: Server = Server::new(port);
+    server.start().await.expect("Failed to start server");
 }

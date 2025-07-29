@@ -1,20 +1,28 @@
-use axum::{routing::get, Json, Router};
-use serde_json::json;
-use tokio::net::TcpListener;
+mod app;
+mod listener;
 
-pub async fn server(app: Router) {
-    let app = health_check(app);
-    let port = 3005;
+use app::{AxumServer, AxumService};
+use listener::{Listener, ListenerService};
 
-    let listener = TcpListener::bind(format!("0.0.0.0:{port}"))
-        .await
-        .expect("Failed to bind TCP listener");
-    println!("Server running on port: {port}");
-    axum::serve(listener, app)
-        .await
-        .expect("Failed to start server");
+pub trait ServerService {
+    fn new(port: u16) -> Self;
+    async fn start(self) -> Result<(), std::io::Error>;
 }
 
-fn health_check(app: Router) -> Router {
-    app.route("/api", get(|| async { Json(json!({"message": "OK"})) }))
+pub struct Server {
+    port: u16,
+}
+
+impl ServerService for Server {
+    fn new(port: u16) -> Self {
+        Self { port }
+    }
+
+    async fn start(self) -> Result<(), std::io::Error> {
+        let listener: Listener = ListenerService::new(self.port);
+        let tcp_listener = listener.listen().await;
+        let axum: AxumServer = AxumService::new(tcp_listener);
+        println!("Starting Axum server on port {}", self.port);
+        axum.server().await
+    }
 }

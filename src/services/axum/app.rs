@@ -1,24 +1,31 @@
 use axum::{routing::get, Router};
 use tokio::net::TcpListener;
 
+use crate::traits::controller::ControllerTrait;
+
 pub trait AxumService {
     fn new(listener: TcpListener) -> Self;
     async fn server(self) -> Result<(), std::io::Error>;
     async fn health_check(&self) -> Router;
+    fn add_route<T: ControllerTrait>(self, controller: T) -> Self;
 }
 
 pub struct AxumServer {
     listener: TcpListener,
+    app: Router,
 }
 
 impl AxumService for AxumServer {
     fn new(listener: TcpListener) -> Self {
-        Self { listener }
+        Self {
+            listener,
+            app: Router::new(),
+        }
     }
 
     async fn server(self) -> Result<(), std::io::Error> {
         let health_check = self.health_check().await;
-        let app = axum::Router::new().nest("/api", health_check);
+        let app = self.app.nest("/api", health_check);
 
         axum::serve(self.listener, app).await
     }
@@ -28,5 +35,10 @@ impl AxumService for AxumServer {
             "/",
             get(|| async { axum::Json(serde_json::json!({"message": "OK"})) }),
         )
+    }
+
+    fn add_route<T: ControllerTrait>(mut self, controller: T) -> Self {
+        self.app = self.app.merge(controller.handler());
+        self
     }
 }

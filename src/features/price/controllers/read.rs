@@ -1,22 +1,47 @@
+use crate::{
+    features::price::use_cases::read_price::ReadPriceUseCaseTrait,
+    traits::controller::{ApiResponse, ControllerTrait},
+};
 use axum::{response::IntoResponse, routing::get, Router};
 
-use crate::traits::controller::{ApiResponse, ControllerTrait};
+pub trait ReadPriceHandlerTrait<U> {
+    fn new(use_case: U) -> Self;
+    async fn perform(self) -> impl IntoResponse;
+}
 
-pub struct ReadPrice;
+#[derive(Clone)]
+pub struct ReadPriceController<U> {
+    read_price_use_case: U,
+}
 
-impl ControllerTrait for ReadPrice {
-    fn handler(&self) -> Router {
-        Router::new().route("/read", get(read))
+impl<U> ReadPriceHandlerTrait<U> for ReadPriceController<U>
+where
+    U: ReadPriceUseCaseTrait,
+{
+    fn new(use_case: U) -> Self {
+        Self {
+            read_price_use_case: use_case,
+        }
+    }
+
+    async fn perform(self) -> impl IntoResponse {
+        let data = self.read_price_use_case.read_price().await;
+        let response: ApiResponse<u32, String> = ApiResponse {
+            code: "200".to_string(),
+            transaction: "read".to_string(),
+            message: data,
+            data: Some(100u32),
+            args: None,
+        };
+        axum::Json(response)
     }
 }
 
-async fn read() -> impl IntoResponse {
-    let response: ApiResponse<u32, String> = ApiResponse {
-        code: "200".to_string(),
-        transaction: "read".to_string(),
-        message: "Price read successfully".to_string(),
-        data: Some(100u32),
-        args: None,
-    };
-    axum::Json(response)
+impl<U> ControllerTrait for ReadPriceController<U>
+where
+    U: ReadPriceUseCaseTrait + Send + Sync + Clone + 'static,
+{
+    fn handler(self) -> Router {
+        Router::new().route("/read", get(move || async move { self.perform() }))
+    }
 }

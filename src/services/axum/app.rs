@@ -1,13 +1,11 @@
 use axum::{routing::get, Router};
 use tokio::net::TcpListener;
 
-use crate::traits::controller::ControllerTrait;
-
 pub trait AxumService {
     fn new(listener: TcpListener) -> Self;
     async fn server(self) -> Result<(), std::io::Error>;
     async fn health_check(&self) -> Router;
-    fn add_route<T: ControllerTrait>(self, controller: T) -> Self;
+    fn add_route(self, route: Router) -> Self;
 }
 
 pub struct AxumServer {
@@ -37,8 +35,8 @@ impl AxumService for AxumServer {
         )
     }
 
-    fn add_route<T: ControllerTrait>(mut self, controller: T) -> Self {
-        self.app = self.app.merge(controller.handler());
+    fn add_route(mut self, route: Router) -> Self {
+        self.app = self.app.merge(route);
         self
     }
 }

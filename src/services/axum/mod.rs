@@ -4,12 +4,10 @@ mod listener;
 use app::{AxumServer, AxumService};
 use listener::{Listener, ListenerService};
 
-use crate::traits::controller::ControllerTrait;
-
 pub trait ServerService {
     async fn new(port: u16) -> Self;
     async fn start(self) -> Result<(), std::io::Error>;
-    fn add_route<T: ControllerTrait>(self, controller: T) -> Self;
+    fn add_route(self, route: axum::Router) -> Self;
 }
 
 pub struct Server {
@@ -33,8 +31,8 @@ impl ServerService for Server {
         self.http_server.server().await
     }
 
-    fn add_route<T: ControllerTrait>(mut self, controller: T) -> Self {
-        self.http_server = self.http_server.add_route(controller);
+    fn add_route(mut self, route: axum::Router) -> Self {
+        self.http_server = self.http_server.add_route(route);
         self
     }
 }

@@ -1,5 +1,5 @@
 pub trait ControllerTrait {
-    fn handler(&self) -> axum::Router;
+    fn handler(self) -> axum::Router;
 }
 
 #[derive(serde::Serialize)]

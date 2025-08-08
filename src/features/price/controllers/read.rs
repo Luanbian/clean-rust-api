@@ -1,35 +1,28 @@
-use crate::{
-    features::price::use_cases::read_price::ReadPriceUseCaseTrait,
-    traits::controller::{ApiResponse, ControllerTrait},
+use std::sync::Arc;
+
+use crate::traits::{
+    controller::{ApiResponse, ControllerTrait},
+    use_cases::UseCaseTrait,
 };
-use axum::{response::IntoResponse, routing::get, Router};
+use axum::{response::IntoResponse, routing::get, Extension, Router};
 
-pub trait ReadPriceHandlerTrait<U> {
-    fn new(use_case: U) -> Self;
-    async fn perform(self) -> impl IntoResponse;
+pub struct ReadPriceController {
+    read_price_use_case: Box<dyn UseCaseTrait<Input = (), Output = String> + Send + Sync>,
 }
 
-#[derive(Clone)]
-pub struct ReadPriceController<U> {
-    read_price_use_case: U,
-}
-
-impl<U> ReadPriceHandlerTrait<U> for ReadPriceController<U>
-where
-    U: ReadPriceUseCaseTrait,
-{
-    fn new(use_case: U) -> Self {
+impl ReadPriceController {
+    pub fn new(use_case: Box<dyn UseCaseTrait<Input = (), Output = String> + Send + Sync>) -> Self {
         Self {
             read_price_use_case: use_case,
         }
     }
 
-    async fn perform(self) -> impl IntoResponse {
-        let data = self.read_price_use_case.read_price().await;
+    async fn perform(&self) -> axum::Json<ApiResponse<u32, String>> {
+        let data = &self.read_price_use_case.perform(None);
         let response: ApiResponse<u32, String> = ApiResponse {
             code: "200".to_string(),
             transaction: "read".to_string(),
-            message: data,
+            message: data.to_string(),
             data: Some(100u32),
             args: None,
         };
@@ -37,11 +30,17 @@ where
     }
 }
 
-impl<U> ControllerTrait for ReadPriceController<U>
-where
-    U: ReadPriceUseCaseTrait + Send + Sync + Clone + 'static,
-{
+async fn read_price_handler(
+    Extension(controller): Extension<Arc<ReadPriceController>>,
+) -> impl IntoResponse {
+    controller.perform().await
+}
+
+impl ControllerTrait for ReadPriceController {
     fn handler(self) -> Router {
-        Router::new().route("/read", get(move || async move { self.perform() }))
+        let controller = Arc::new(self);
+        Router::new()
+            .route("/read", get(read_price_handler))
+            .layer(Extension(controller))
     }
 }

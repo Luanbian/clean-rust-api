@@ -1,5 +1,6 @@
 use crate::features::price::{
-    controllers::read::ReadPriceController, repository::find_price_repo::FindPriceRepo,
+    controllers::read::{ReadPriceController, ReadPriceControllerTrait},
+    repository::find_price_repo::FindPriceRepo,
     use_cases::read_price::ReadPriceUseCase,
 };
 use crate::traits::controller::ControllerTrait;

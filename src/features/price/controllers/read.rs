@@ -6,12 +6,17 @@ use crate::traits::{
 };
 use axum::{response::IntoResponse, routing::get, Extension, Router};
 
+pub trait ReadPriceControllerTrait {
+    fn new(use_case: Box<dyn UseCaseTrait<Input = (), Output = String> + Send + Sync>) -> Self;
+    async fn perform(&self) -> axum::Json<ApiResponse<u32, String>>;
+}
+
 pub struct ReadPriceController {
     read_price_use_case: Box<dyn UseCaseTrait<Input = (), Output = String> + Send + Sync>,
 }
 
-impl ReadPriceController {
-    pub fn new(use_case: Box<dyn UseCaseTrait<Input = (), Output = String> + Send + Sync>) -> Self {
+impl ReadPriceControllerTrait for ReadPriceController {
+    fn new(use_case: Box<dyn UseCaseTrait<Input = (), Output = String> + Send + Sync>) -> Self {
         Self {
             read_price_use_case: use_case,
         }

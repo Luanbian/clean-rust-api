@@ -10,6 +10,15 @@ pub trait ServerService {
     fn add_route(self, route: axum::Router) -> Self;
 }
 
+#[derive(serde::Serialize)]
+pub struct ApiResponse<T, E> {
+    pub code: String,
+    pub transaction: String,
+    pub message: String,
+    pub data: Option<T>,
+    pub args: Option<E>,
+}
+
 pub struct Server {
     port: u16,
     http_server: AxumServer,

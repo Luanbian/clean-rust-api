@@ -1,24 +1,36 @@
 use crate::{
-    services::postgres::{Database, DbService},
-    traits::repository::RepositoryTrait,
+    enums::repository::{RepositoryError, RepositoryResult},
+    features::price::repository::traits::PriceRepositoryTrait,
+    services::postgres::DatabasePool,
 };
+use async_trait::async_trait;
 use sqlx::Row;
+use std::sync::Arc;
 
-pub struct FindPriceRepo;
+pub struct FindPriceRepo {
+    db: Arc<DatabasePool>,
+}
 
-impl RepositoryTrait for FindPriceRepo {
-    type Input = ();
-    type Output = i32;
+impl FindPriceRepo {
+    pub fn new(db: Arc<DatabasePool>) -> Self {
+        Self { db }
+    }
+}
 
-    async fn main(
-        &self,
-        _input: Option<Self::Input>,
-    ) -> Result<Self::Output, Box<dyn std::error::Error>> {
-        let db = Database::get_db().unwrap();
-        let result = sqlx::query("SELECT price FROM product LIMIT 1")
-            .fetch_one(db)
-            .await?;
-        let price = result.try_get("price")?;
-        Ok(price)
+#[async_trait]
+impl PriceRepositoryTrait for FindPriceRepo {
+    async fn find_by_id(&self, id: i32) -> RepositoryResult<Option<i32>> {
+        let db = self.db.get_pool();
+        let build_query = "SELECT price FROM products WHERE id = $1";
+        let query = sqlx::query(build_query).bind(id);
+
+        let row = query
+            .fetch_optional(db)
+            .await
+            .map_err(|err| RepositoryError::Database {
+                message: (err.to_string()),
+            })?;
+
+        Ok(row.map(|r| r.get::<i32, _>("price")))
     }
 }

@@ -1,51 +1,54 @@
 use std::sync::Arc;
 
-use crate::traits::{
-    controller::{ApiResponse, ControllerTrait},
-    use_cases::UseCaseTrait,
-};
-use axum::{response::IntoResponse, routing::get, Extension, Router};
+use axum::{routing::get, Router};
 
-pub trait ReadPriceControllerTrait {
-    fn new(use_case: Box<dyn UseCaseTrait<Input = (), Output = String> + Send + Sync>) -> Self;
-    async fn perform(&self) -> axum::Json<ApiResponse<u32, String>>;
-}
+use crate::{
+    features::price::use_cases::read_price::ReadPriceUseCase, services::axum::ApiResponse,
+};
 
 pub struct ReadPriceController {
-    read_price_use_case: Box<dyn UseCaseTrait<Input = (), Output = String> + Send + Sync>,
+    read_price_use_case: Arc<ReadPriceUseCase>,
 }
 
-impl ReadPriceControllerTrait for ReadPriceController {
-    fn new(use_case: Box<dyn UseCaseTrait<Input = (), Output = String> + Send + Sync>) -> Self {
+impl ReadPriceController {
+    pub fn new(use_case: Arc<ReadPriceUseCase>) -> Self {
         Self {
             read_price_use_case: use_case,
         }
     }
 
-    async fn perform(&self) -> axum::Json<ApiResponse<u32, String>> {
-        let data = &self.read_price_use_case.perform(None);
-        let response: ApiResponse<u32, String> = ApiResponse {
-            code: "200".to_string(),
-            transaction: "read".to_string(),
-            message: data.to_string(),
-            data: Some(100u32),
-            args: None,
-        };
-        axum::Json(response)
+    pub async fn handler(&self, id: i32) -> axum::Json<ApiResponse<String, String>> {
+        match self.read_price_use_case.perform(id).await {
+            Ok(price) => {
+                let response: ApiResponse<String, String> = ApiResponse {
+                    code: "clean.rust.api.price.read".to_string(),
+                    transaction: "1234567890".to_string(),
+                    message: "Price retrieved successfully".to_string(),
+                    data: Some(price),
+                    args: None,
+                };
+                axum::Json(response)
+            }
+            Err(err) => {
+                let response: ApiResponse<String, String> = ApiResponse {
+                    code: "clean.rust.api.price.read.error".to_string(),
+                    transaction: "1234567890".to_string(),
+                    message: "Error retrieving price".to_string(),
+                    data: None,
+                    args: Some(err.to_string()),
+                };
+                axum::Json(response)
+            }
+        }
     }
-}
 
-async fn read_price_handler(
-    Extension(controller): Extension<Arc<ReadPriceController>>,
-) -> impl IntoResponse {
-    controller.perform().await
-}
-
-impl ControllerTrait for ReadPriceController {
-    fn handler(self) -> Router {
-        let controller = Arc::new(self);
-        Router::new()
-            .route("/read", get(read_price_handler))
-            .layer(Extension(controller))
+    pub fn router(self: Arc<Self>) -> Router {
+        Router::new().route(
+            "/price/{id}",
+            get(move |axum::extract::Path(id)| {
+                let controller = self.clone();
+                async move { controller.handler(id).await }
+            }),
+        )
     }
 }

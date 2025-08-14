@@ -1,26 +1,34 @@
-use sqlx::{Pool, Postgres};
-use tokio::sync::OnceCell;
+use sqlx::PgPool;
 
-use crate::constants::postgres::get_db_url;
+use crate::{constants::postgres::get_db_url, enums::repository::RepositoryError};
 
-pub static DB: OnceCell<Pool<Postgres>> = OnceCell::const_new();
-
-pub trait DbService {
-    async fn connect_db() -> Result<(), sqlx::Error>;
-    fn get_db() -> Result<&'static Pool<Postgres>, &'static str>;
+#[derive(Clone)]
+pub struct DatabasePool {
+    db_pool: PgPool,
 }
 
-pub struct Database;
+impl DatabasePool {
+    pub async fn new() -> Result<Self, RepositoryError> {
+        let db_url = get_db_url();
+        let pool = PgPool::connect(&db_url)
+            .await
+            .map_err(|err| RepositoryError::Connection {
+                message: err.to_string(),
+            })?;
 
-impl DbService for Database {
-    async fn connect_db() -> Result<(), sqlx::Error> {
-        let pool = sqlx::postgres::PgPool::connect(&get_db_url()).await?;
-        println!("Connected to the database successfully");
-        DB.set(pool).map_err(|_| sqlx::Error::PoolTimedOut)?;
-        Ok(())
+        sqlx::query("SELECT 1")
+            .execute(&pool)
+            .await
+            .map_err(|err| RepositoryError::TestQuery {
+                message: err.to_string(),
+            })?;
+
+        println!("Connected to the database successfully.");
+
+        Ok(Self { db_pool: pool })
     }
 
-    fn get_db() -> Result<&'static Pool<Postgres>, &'static str> {
-        DB.get().ok_or("Database not connected")
+    pub fn get_pool(&self) -> &PgPool {
+        &self.db_pool
     }
 }
